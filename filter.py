@@ -170,7 +170,7 @@ if __name__ == '__main__':
     transform = transforms.Compose(
         [transforms.ToTensor()
          ])
-    trainset = dset.ImageFolder(root="training/", transform=transform)
+    trainset = dset.ImageFolder(root="datasets/training-filter/", transform=transform)
     train_loader = data_utils.DataLoader(trainset, batch_size=4, shuffle=True)
 
     dataiter = iter(train_loader)
