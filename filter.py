@@ -9,6 +9,9 @@ import torch.utils.data as data_utils
 import torchvision
 import matplotlib.pyplot as plt
 
+import torchvision.datasets as dset
+import torchvision.transforms as transforms
+
 from PIL import Image
 import string
 import csv
@@ -21,29 +24,11 @@ label_csv_path = 'labels.csv'
 dataset_path = 'filter_data.pickle'
 
 class Net(nn.Module):
-    # def __init__(self):
-    #     super(Net, self).__init__()
-    #     self.conv1 = nn.Conv2d(3, 6, 5)
-    #     self.pool = nn.MaxPool2d(2, 2)
-    #     self.conv2 = nn.Conv2d(6, 16, 5)
-    #     self.fc1 = nn.Linear(16 * 5 * 5, 120)
-    #     self.fc2 = nn.Linear(120, 84)
-    #     self.fc3 = nn.Linear(84, 2)
-    #
-    # def forward(self, x):
-    #     x = self.pool(F.relu(self.conv1(x)))
-    #     x = self.pool(F.relu(self.conv2(x)))
-    #     x = x.view(-1, 16 * 5 * 5)
-    #     x = F.relu(self.fc1(x))
-    #     x = F.relu(self.fc2(x))
-    #     x = self.fc3(x)
-    #     return x
-
     def __init__(self):
         super(Net, self).__init__()
 
         # Define a convolutional layer
-        self.conv1 = torch.nn.Conv2d(3, 10, kernel_size=3, stride=1, padding=1)
+        self.conv1 = torch.nn.Conva2d(3, 10, kernel_size=3, stride=1, padding=1)
         # Define a rectified linear unit
         self.relu = torch.nn.ReLU()
         # Define a pooling layer
@@ -71,69 +56,79 @@ class Net(nn.Module):
         return y
 
 def create_dataset():
-    generic_path = './data/'
+    # transform = transforms.Compose(
+    #     [transforms.ToTensor(),
+    #      transforms.Scale((243, 243)),
+    #      transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
-    label_rows = []
-    with open(generic_path + label_csv_path) as fd:
-        reader = csv.reader(fd)
-        label_rows = [row for row in reader]
+    transform = transforms.Compose(
+        [transforms.ToTensor()])
+    trainset = dset.ImageFolder(root="training", transform=transform)
 
-    inputs = []
-    labels = []
-    for fn in glob.glob(generic_path + '*.jpg'):
-        img = Image.open(fn).convert('RGB')
-        data_path = fn.split('/')[2]
-        img_arr = np.array(img)
-
-        num_rows = 8
-        num_cols = 8
-
-        letter_index = string.ascii_uppercase.index(data_path[0])
-        label_start_index = letter_index * num_rows * num_cols
-
-        full_width = img_arr.shape[0]
-        full_height = img_arr.shape[1]
-
-        slice_width = full_width // num_cols
-        slice_height = full_height // num_rows
-
-        index = label_start_index
-
-        for row in range(num_rows):
-            startRow = row * slice_height
-            endRow = (row + 1) * slice_height
-
-            for col in range(num_cols):
-                startCol = col * slice_width
-                endCol = (col + 1) * slice_height
-
-                # 0 is <=50% cell area
-                # 1 is >50% cell area
-
-                label = 0
-                percent = int(label_rows[index][3].replace('%', ''))
-                if percent > 50:
-                    label = 1
-
-                inputs.append(img_arr[startRow:endRow, startCol:endCol])
-                labels.append(label)
-
-                index += 1
-
-    print(np.array(inputs).shape)
-    # num_batches = 12
-
-    # batch_len = len(labels) // num_batches
-    # batch_labels = list(chunks(labels, batch_len))
-    # batch_inputs = list(chunks(inputs, batch_len))
-
-    # data = np.array(batch_inputs), np.array(batch_labels)
-
-    # data = np.array(inputs).reshape(1536, 3, 243, 243), np.array(labels)
-    data = np.array(inputs).reshape(1536, 3, 243, 243), np.array(labels)
-
-    with open(dataset_path, 'wb') as handle:
-        pickle.dump(data, handle)
+# def create_dataset():
+#     generic_path = './data/'
+#
+#     label_rows = []
+#     with open(generic_path + label_csv_path) as fd:
+#         reader = csv.reader(fd)
+#         label_rows = [row for row in reader]
+#
+#     inputs = []
+#     labels = []
+#     for fn in glob.glob(generic_path + '*.jpg'):
+#         img = Image.open(fn).convert('RGB')
+#         data_path = fn.split('/')[2]
+#         img_arr = np.array(img)
+#
+#         num_rows = 8
+#         num_cols = 8
+#
+#         letter_index = string.ascii_uppercase.index(data_path[0])
+#         label_start_index = letter_index * num_rows * num_cols
+#
+#         full_width = img_arr.shape[0]
+#         full_height = img_arr.shape[1]
+#
+#         slice_width = full_width // num_cols
+#         slice_height = full_height // num_rows
+#
+#         index = label_start_index
+#
+#         for row in range(num_rows):
+#             startRow = row * slice_height
+#             endRow = (row + 1) * slice_height
+#
+#             for col in range(num_cols):
+#                 startCol = col * slice_width
+#                 endCol = (col + 1) * slice_height
+#
+#                 # 0 is <=50% cell area
+#                 # 1 is >50% cell area
+#
+#                 label = 0
+#                 percent = int(label_rows[index][3].replace('%', ''))
+#                 if percent > 50:
+#                     label = 1
+#
+#                 inputs.append(img_arr[startRow:endRow, startCol:endCol])
+#                 labels.append(label)
+#
+#                 index += 1
+#
+#     print(np.array(inputs).shape)
+#     # num_batches = 12
+#
+#     # batch_len = len(labels) // num_batches
+#     # batch_labels = list(chunks(labels, batch_len))
+#     # batch_inputs = list(chunks(inputs, batch_len))
+#
+#     # data = np.array(batch_inputs), np.array(batch_labels)
+#
+#     # data = np.array(inputs).reshape(1536, 3, 243, 243), np.array(labels)
+#     data = np.array(inputs).reshape(1536, 243, 243, 3), np.array(labels)
+#
+#     with open(dataset_path, 'wb') as handle:
+#         pickle.dump(data, handle)
 
 
 def imshow(img):
@@ -149,14 +144,13 @@ def show_grid(images, size):
         plt.imshow(images[i].numpy().reshape(243, 243, 3))
     plt.show()
 
-
 if __name__ == '__main__':
-    if not os.path.isfile(dataset_path):
-        create_dataset()
-
-    data_loader = None
-    with open(dataset_path, 'rb') as handle:
-        data_loader = pickle.load(handle)
+    # if not os.path.isfile(dataset_path):
+    #     create_dataset()
+    #
+    # data_loader = None
+    # with open(dataset_path, 'rb') as handle:
+    #     data_loader = pickle.load(handle)
 
     # Create neural net
     net = Net()
@@ -168,10 +162,16 @@ if __name__ == '__main__':
 
     # Train network
 
-    batch_inputs, batch_labels = data_loader
+    # batch_inputs, batch_labels = data_loader
 
-    train = data_utils.TensorDataset(torch.from_numpy(batch_inputs), torch.from_numpy(batch_labels))
-    train_loader = data_utils.DataLoader(train, batch_size=4, shuffle=True)
+    # train = data_utils.TensorDataset(torch.from_numpy(batch_inputs), torch.from_numpy(batch_labels))
+    # train_loader = data_utils.DataLoader(train, batch_size=4, shuffle=True)
+
+    transform = transforms.Compose(
+        [transforms.ToTensor()
+         ])
+    trainset = dset.ImageFolder(root="training/", transform=transform)
+    train_loader = data_utils.DataLoader(trainset, batch_size=4, shuffle=True)
 
     dataiter = iter(train_loader)
     images, labels = dataiter.next()
@@ -192,7 +192,7 @@ if __name__ == '__main__':
             optimizer.zero_grad()
 
             outputs = net(inputs)
-            print(str(outputs), str(labels))
+            # print(str(outputs), str(labels))
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
@@ -205,9 +205,9 @@ if __name__ == '__main__':
 
     print('\n\nFinished Training\n\n')
 
-    test_loader = data_utils.DataLoader(train, batch_size=16, shuffle=True)
+    test_loader = data_utils.DataLoader(trainset, batch_size=16, shuffle=True)
     dataiter = iter(test_loader)
-    images, labels = dataiter.next()
+    images, labels = next(dataiter)
     show_grid(images, 4)
 
     test_outputs = net(Variable(images).float())
