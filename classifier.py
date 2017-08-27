@@ -19,9 +19,6 @@ import pickle
 import glob
 import os.path
 
-label_csv_path = 'labels.csv'
-dataset_path = 'filter_data.pickle'
-
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
@@ -54,6 +51,7 @@ class Net(nn.Module):
         # Return predictions
         return y
 
+
 def imshow(img):
     npimg = img.numpy().reshape(243, 243, 3)
     plt.imshow(npimg)
@@ -66,6 +64,7 @@ def show_grid(images, size):
         fig.add_subplot(size, size, i + 1)
         plt.imshow(images[i].numpy().reshape(243, 243, 3))
     plt.show()
+
 
 def train(epochs=20):
     # Create neural net
@@ -90,13 +89,10 @@ def train(epochs=20):
         running_loss = 0.0
 
         for i, data in enumerate(train_loader, 0):
-
             inputs, labels = data
 
             # Variable wrapper
             inputs, labels = Variable(inputs).float(), Variable(labels)
-
-            # print(inputs, labels)
             optimizer.zero_grad()
 
             outputs = net(inputs)
@@ -117,67 +113,9 @@ def train(epochs=20):
 
     return net
 
+
 def classify():
-    # if not os.path.isfile(dataset_path):
-    #     create_dataset()
-    #
-    # data_loader = None
-    # with open(dataset_path, 'rb') as handle:
-    #     data_loader = pickle.load(handle)
-
-    # Create neural net
-    net = Net()
-    print(net)
-
-    # Create loss function & optimization criteria
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(net.parameters(), lr=0.0006, momentum=0.9)
-
-    # Train network
-
-    # batch_inputs, batch_labels = data_loader
-
-    # train = data_utils.TensorDataset(torch.from_numpy(batch_inputs), torch.from_numpy(batch_labels))
-    # train_loader = data_utils.DataLoader(train, batch_size=4, shuffle=True)
-
-    transform = transforms.Compose(
-        [transforms.ToTensor()
-         ])
-    trainset = dset.ImageFolder(root="datasets/training-classifier/", transform=transform)
-    train_loader = data_utils.DataLoader(trainset, batch_size=4, shuffle=True)
-
-    dataiter = iter(train_loader)
-    images, labels = dataiter.next()
-
-    show_grid(images, 2)
-
-    for epoch in range(20):  # 3 epochs
-        running_loss = 0.0
-
-        for i, data in enumerate(train_loader, 0):
-
-            inputs, labels = data
-
-            # Variable wrapper
-            inputs, labels = Variable(inputs).float(), Variable(labels)
-
-            # print(inputs, labels)
-            optimizer.zero_grad()
-
-            outputs = net(inputs)
-            print(outputs)
-
-            loss = criterion(outputs, labels)
-            loss.backward()
-            optimizer.step()
-
-            running_loss += loss.data[0]
-            if i % 50 == 49:
-                print('[%d, %5d] loss: %.3f' %
-                      (epoch + 1, i + 1, running_loss / 50))
-                running_loss = 0.0
-
-    print('\n\nFinished Training\n\n')
+    net = train()
 
     transform = transforms.Compose(
         [transforms.ToTensor()
@@ -203,17 +141,6 @@ def classify():
     print('Accuracy of the network on the test images: %d %%' % (
         100 * correct / total))
 
-    # dataiter = iter(test_loader)
-    #
-    # images, labels = next(dataiter)
-    # show_grid(images, 2)
-    #
-    # test_outputs = net(Variable(images).float())
-    # _, predicted = torch.max(test_outputs, 1)
-    #
-    # print('Predicted: ', ' '.join('%5s' % str(predicted[j][0].data[0])
-    #                               for j in range(len(predicted))))
-    # print('Labels: ' + str(labels))
 
 def classify_weighted_avg(retrain=False):
     net = None
@@ -225,7 +152,7 @@ def classify_weighted_avg(retrain=False):
     transform = transforms.Compose(
         [transforms.ToTensor()
          ])
-    testset = dset.ImageFolder(root="datasets/testing-classifier-c/", transform=transform)
+    testset = dset.ImageFolder(root="datasets/testing-classifier-u/", transform=transform)
     test_loader = data_utils.DataLoader(testset)
 
     numerator = 0
@@ -239,31 +166,20 @@ def classify_weighted_avg(retrain=False):
         max, predicted = torch.max(outputs.data, 1)
 
         print('Predicted: ' + str(predicted))
-        # print(max[0].numpy())
-
         output_energies = outputs.data[0].numpy()
 
-        # print(output_energies)
-
         p = np.exp(max[0].numpy()) / np.sum(np.exp(output_energies))
-
         print(p)
-
-        # print('Predicted: ', ' '.join('%5s' % str(predicted[j][0])
-        #                               for j in range(len(predicted))))
         print('Labels: ' + str(labels))
 
         numerator += predicted[0].numpy()[0] * p[0]
         denominator += p[0]
-
         predicted_counts[predicted[0].numpy()[0]] += 1
 
     print('Predicted Counts: ' + str(predicted_counts))
     weighted_avg = numerator / denominator
     print('Weighted average score for entire image: ' + str(weighted_avg))
 
-    # print('Accuracy of the network on the test images: %d %%' % (
-    #     100 * correct / total))
 
 if __name__ == '__main__':
-    classify_weighted_avg(True)
+    classify_weighted_avg()
