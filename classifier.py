@@ -19,9 +19,9 @@ import pickle
 import glob
 import os.path
 
-class Net(nn.Module):
+class ClassifierNet(nn.Module):
     def __init__(self):
-        super(Net, self).__init__()
+        super(ClassifierNet, self).__init__()
 
         # Define a convolutional layer
         self.conv1 = torch.nn.Conv2d(3, 10, kernel_size=3, stride=1, padding=1)
@@ -52,23 +52,11 @@ class Net(nn.Module):
         return y
 
 
-def imshow(img):
-    npimg = img.numpy().reshape(243, 243, 3)
-    plt.imshow(npimg)
-    plt.show()
-
-
-def show_grid(images, size):
-    fig = plt.figure()
-    for i in range(size * size):
-        fig.add_subplot(size, size, i + 1)
-        plt.imshow(images[i].numpy().reshape(243, 243, 3))
-    plt.show()
-
-
 def train(epochs=20):
+    from classifier import ClassifierNet
+
     # Create neural net
-    net = Net()
+    net = ClassifierNet()
     print(net)
 
     # Create loss function & optimization criteria
@@ -76,10 +64,8 @@ def train(epochs=20):
     optimizer = optim.SGD(net.parameters(), lr=0.0006, momentum=0.9)
 
     # Train network
-    transform = transforms.Compose(
-        [transforms.ToTensor()
-         ])
-    trainset = dset.ImageFolder(root="datasets/training-classifier/", transform=transform)
+    transform = transforms.Compose([transforms.ToTensor()])
+    trainset = dset.ImageFolder(root="datasets/training-classifier-split/", transform=transform)
     train_loader = data_utils.DataLoader(trainset, batch_size=4, shuffle=True)
 
     dataiter = iter(train_loader)
@@ -89,10 +75,13 @@ def train(epochs=20):
         running_loss = 0.0
 
         for i, data in enumerate(train_loader, 0):
+
             inputs, labels = data
 
             # Variable wrapper
             inputs, labels = Variable(inputs).float(), Variable(labels)
+
+            # print(inputs, labels)
             optimizer.zero_grad()
 
             outputs = net(inputs)
@@ -102,24 +91,30 @@ def train(epochs=20):
             optimizer.step()
 
             running_loss += loss.data[0]
-            if i % 50 == 49:
+            if i % 20 == 19:
                 print('[%d, %5d] loss: %.3f' %
-                      (epoch + 1, i + 1, running_loss / 50))
+                      (epoch + 1, i + 1, running_loss / 20))
                 running_loss = 0.0
 
     print('\n\nFinished Training\n\n')
 
     torch.save(net, 'model.pth')
-
     return net
 
+
+def get_net(retrain=False):
+    classifier_net = None
+    if retrain is True:
+        classifier_net = train()
+    else:
+        classifier_net = torch.load('model.pth')
+
+    return classifier_net
 
 def classify():
     net = train()
 
-    transform = transforms.Compose(
-        [transforms.ToTensor()
-         ])
+    transform = transforms.Compose([transforms.ToTensor()])
     testset = dset.ImageFolder(root="datasets/testing-classifier/", transform=transform)
     test_loader = data_utils.DataLoader(testset, batch_size=4, shuffle=True)
 
@@ -141,18 +136,11 @@ def classify():
     print('Accuracy of the network on the test images: %d %%' % (
         100 * correct / total))
 
-
 def classify_weighted_avg(retrain=False):
-    net = None
-    if retrain is True:
-        net = train()
-    else:
-        net = torch.load('model.pth')
+    get_net(retrain)
 
-    transform = transforms.Compose(
-        [transforms.ToTensor()
-         ])
-    testset = dset.ImageFolder(root="datasets/testing-classifier-u/", transform=transform)
+    transform = transforms.Compose([transforms.ToTensor()])
+    testset = dset.ImageFolder(root="datasets/testing-classifier-b/", transform=transform)
     test_loader = data_utils.DataLoader(testset)
 
     numerator = 0
@@ -161,19 +149,28 @@ def classify_weighted_avg(retrain=False):
     predicted_counts = [0, 0, 0, 0]
     for data in test_loader:
         images, labels = data
-        outputs = net(Variable(images))
+        outputs = classifier_net(Variable(images))
 
         max, predicted = torch.max(outputs.data, 1)
 
         print('Predicted: ' + str(predicted))
+        # print(max[0].numpy())
+
         output_energies = outputs.data[0].numpy()
 
+        # print(output_energies)
+
         p = np.exp(max[0].numpy()) / np.sum(np.exp(output_energies))
+
         print(p)
+
+        # print('Predicted: ', ' '.join('%5s' % str(predicted[j][0])
+        #                               for j in range(len(predicted))))
         print('Labels: ' + str(labels))
 
         numerator += predicted[0].numpy()[0] * p[0]
         denominator += p[0]
+
         predicted_counts[predicted[0].numpy()[0]] += 1
 
     print('Predicted Counts: ' + str(predicted_counts))
@@ -182,4 +179,4 @@ def classify_weighted_avg(retrain=False):
 
 
 if __name__ == '__main__':
-    classify_weighted_avg()
+    classify_weighted_avg(True)

@@ -20,15 +20,12 @@ import glob
 import os.path
 
 
-label_csv_path = 'labels.csv'
-dataset_path = 'filter_data.pickle'
-
-class Net(nn.Module):
+class FilterNet(nn.Module):
     def __init__(self):
-        super(Net, self).__init__()
+        super(FilterNet, self).__init__()
 
         # Define a convolutional layer
-        self.conv1 = torch.nn.Conva2d(3, 10, kernel_size=3, stride=1, padding=1)
+        self.conv1 = torch.nn.Conv2d(3, 10, kernel_size=3, stride=1, padding=1)
         # Define a rectified linear unit
         self.relu = torch.nn.ReLU()
         # Define a pooling layer
@@ -55,130 +52,34 @@ class Net(nn.Module):
         # Return predictions
         return y
 
-def create_dataset():
-    # transform = transforms.Compose(
-    #     [transforms.ToTensor(),
-    #      transforms.Scale((243, 243)),
-    #      transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
-    transform = transforms.Compose(
-        [transforms.ToTensor()])
-    trainset = dset.ImageFolder(root="training", transform=transform)
+def get_net(retrain=False):
+    filter_net = None
+    if retrain is True:
+        filter_net = train()
+    else:
+        filter_net = torch.load('filter_model.pth')
 
-# def create_dataset():
-#     generic_path = './data/'
-#
-#     label_rows = []
-#     with open(generic_path + label_csv_path) as fd:
-#         reader = csv.reader(fd)
-#         label_rows = [row for row in reader]
-#
-#     inputs = []
-#     labels = []
-#     for fn in glob.glob(generic_path + '*.jpg'):
-#         img = Image.open(fn).convert('RGB')
-#         data_path = fn.split('/')[2]
-#         img_arr = np.array(img)
-#
-#         num_rows = 8
-#         num_cols = 8
-#
-#         letter_index = string.ascii_uppercase.index(data_path[0])
-#         label_start_index = letter_index * num_rows * num_cols
-#
-#         full_width = img_arr.shape[0]
-#         full_height = img_arr.shape[1]
-#
-#         slice_width = full_width // num_cols
-#         slice_height = full_height // num_rows
-#
-#         index = label_start_index
-#
-#         for row in range(num_rows):
-#             startRow = row * slice_height
-#             endRow = (row + 1) * slice_height
-#
-#             for col in range(num_cols):
-#                 startCol = col * slice_width
-#                 endCol = (col + 1) * slice_height
-#
-#                 # 0 is <=50% cell area
-#                 # 1 is >50% cell area
-#
-#                 label = 0
-#                 percent = int(label_rows[index][3].replace('%', ''))
-#                 if percent > 50:
-#                     label = 1
-#
-#                 inputs.append(img_arr[startRow:endRow, startCol:endCol])
-#                 labels.append(label)
-#
-#                 index += 1
-#
-#     print(np.array(inputs).shape)
-#     # num_batches = 12
-#
-#     # batch_len = len(labels) // num_batches
-#     # batch_labels = list(chunks(labels, batch_len))
-#     # batch_inputs = list(chunks(inputs, batch_len))
-#
-#     # data = np.array(batch_inputs), np.array(batch_labels)
-#
-#     # data = np.array(inputs).reshape(1536, 3, 243, 243), np.array(labels)
-#     data = np.array(inputs).reshape(1536, 243, 243, 3), np.array(labels)
-#
-#     with open(dataset_path, 'wb') as handle:
-#         pickle.dump(data, handle)
+    return filter_net
 
 
-def imshow(img):
-    npimg = img.numpy().reshape(243, 243, 3)
-    plt.imshow(npimg)
-    plt.show()
-
-
-def show_grid(images, size):
-    fig = plt.figure()
-    for i in range(size * size):
-        fig.add_subplot(size, size, i + 1)
-        plt.imshow(images[i].numpy().reshape(243, 243, 3))
-    plt.show()
-
-if __name__ == '__main__':
-    # if not os.path.isfile(dataset_path):
-    #     create_dataset()
-    #
-    # data_loader = None
-    # with open(dataset_path, 'rb') as handle:
-    #     data_loader = pickle.load(handle)
+def train(epochs=10):
+    from filter import FilterNet
 
     # Create neural net
-    net = Net()
-    print(net)
+    filter_net = FilterNet()
+    print(filter_net)
 
     # Create loss function & optimization criteria
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+    optimizer = optim.SGD(filter_net.parameters(), lr=0.001, momentum=0.9)
 
     # Train network
-
-    # batch_inputs, batch_labels = data_loader
-
-    # train = data_utils.TensorDataset(torch.from_numpy(batch_inputs), torch.from_numpy(batch_labels))
-    # train_loader = data_utils.DataLoader(train, batch_size=4, shuffle=True)
-
-    transform = transforms.Compose(
-        [transforms.ToTensor()
-         ])
+    transform = transforms.Compose([transforms.ToTensor()])
     trainset = dset.ImageFolder(root="datasets/training-filter/", transform=transform)
     train_loader = data_utils.DataLoader(trainset, batch_size=4, shuffle=True)
 
-    dataiter = iter(train_loader)
-    images, labels = dataiter.next()
-
-    show_grid(images, 2)
-
-    for epoch in range(3): # 3 iters
+    for epoch in range(epochs):  # 3 iters
         running_loss = 0.0
 
         for i, data in enumerate(train_loader, 0):
@@ -191,29 +92,51 @@ if __name__ == '__main__':
             # print(inputs, labels)
             optimizer.zero_grad()
 
-            outputs = net(inputs)
+            outputs = filter_net(inputs)
             # print(str(outputs), str(labels))
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
 
             running_loss += loss.data[0]
-            if i % 50 == 49:
+            if i % 20 == 19:
                 print('[%d, %5d] loss: %.3f' %
-                      (epoch + 1, i + 1, running_loss / 50))
+                      (epoch + 1, i + 1, running_loss / 20))
                 running_loss = 0.0
 
     print('\n\nFinished Training\n\n')
 
-    test_loader = data_utils.DataLoader(trainset, batch_size=16, shuffle=True)
-    dataiter = iter(test_loader)
-    images, labels = next(dataiter)
-    show_grid(images, 4)
+    torch.save(filter_net, 'filter_model.pth')
+    return filter_net
 
-    test_outputs = net(Variable(images).float())
-    _, predicted = torch.max(test_outputs, 1)
-    # print('Predicted: ', ' '.join('%5s' % str(predicted[j][0].data[0])
-    #                               for j in range(16)))
-    print('Predicted: ' + str(test_outputs))
 
-    print('Labels: ' + str(labels))
+def classify(retrain=False):
+    filter_net = get_net(retrain)
+
+    transform = transforms.Compose([transforms.ToTensor()])
+    testset = dset.ImageFolder(root="datasets/testing-filter/", transform=transform)
+    test_loader = data_utils.DataLoader(testset, batch_size=4, shuffle=True)
+
+    correct = 0
+    total = 0
+    for data in test_loader:
+        images, labels = data
+        outputs = filter_net(Variable(images))
+
+        print(outputs.data)
+        _, predicted = torch.max(outputs.data, 1)
+
+        print('Predicted: ', ' '.join('%5s' % str(predicted[j][0])
+                                      for j in range(len(predicted))))
+        print('Labels: ' + str(labels))
+        total += labels.size(0)
+        correct += (predicted == labels).sum()
+
+    print('Accuracy of the network on the test images: %d %%' % (
+        100 * correct / total))
+
+
+if __name__ == '__main__':
+    classify(True)
+
+
