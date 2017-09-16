@@ -13,11 +13,15 @@ import torchvision.datasets as dset
 import torchvision.transforms as transforms
 
 from PIL import Image
+from PIL import ImageFile
 import string
 import csv
 import pickle
 import glob
 import os.path
+import filter
+import helper
+import visualize
 
 class ClassifierNet(nn.Module):
     def __init__(self):
@@ -33,6 +37,8 @@ class ClassifierNet(nn.Module):
         self.conv2 = torch.nn.Conv2d(10, 20, kernel_size=3, stride=1, padding=1)
         # We do not need to define model relus nor pooling (no parameters to train, we can reuse the same ones)
 
+        # self.conv2_drop = nn.Dropout2d()
+
         # Define final fully-connected layers
         # self.fc1 = torch.nn.Linear(20 * 8 * 8, 120)
         self.fc1 = torch.nn.Linear(72000, 120)
@@ -47,31 +53,42 @@ class ClassifierNet(nn.Module):
         # Reshape to batch_size-by-whatever
         y = y.view(x.size(0), -1)
         # Last stage: fc -> relu -> fc
+        # y = F.dropout(y, training=self.training)
         y = self.fc2(self.relu(self.fc1(y)))
         # Return predictions
         return y
 
 
-def train(epochs=20):
+def train(epochs=20, continue_training=False):
     from classifier import ClassifierNet
 
     # Create neural net
     net = ClassifierNet()
+    if continue_training is True:
+        net = get_net()
+
     print(net)
 
     # Create loss function & optimization criteria
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(net.parameters(), lr=0.0006, momentum=0.9)
+    optimizer = optim.SGD(net.parameters(), lr=0.0008, momentum=0.9)
 
     # Train network
-    transform = transforms.Compose([transforms.ToTensor()])
-    trainset = dset.ImageFolder(root="datasets/training-classifier-split/", transform=transform)
-    train_loader = data_utils.DataLoader(trainset, batch_size=4, shuffle=True)
+    transform = transforms.Compose([transforms.ToTensor(),
+                                    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+    trainset = dset.ImageFolder(root="datasets/training-classifier-RATIO/", transform=transform)
+    train_loader = data_utils.DataLoader(trainset, batch_size=6, shuffle=True)
 
     dataiter = iter(train_loader)
     images, labels = dataiter.next()
 
+    loss_over_time_avgs = []
+    loss_over_time = []
+
     for epoch in range(epochs):
+
+        loss_over_time = []
+
         running_loss = 0.0
 
         for i, data in enumerate(train_loader, 0):
@@ -94,7 +111,18 @@ def train(epochs=20):
             if i % 20 == 19:
                 print('[%d, %5d] loss: %.3f' %
                       (epoch + 1, i + 1, running_loss / 20))
+
+                loss_over_time.append(running_loss / 20)
                 running_loss = 0.0
+
+        loss_over_time_avgs.append(np.mean(np.array(loss_over_time)))
+
+
+    print(str(loss_over_time_avgs))
+    plt.plot(loss_over_time_avgs)
+    plt.xlabel('Iteration')
+    plt.ylabel('Running Loss of Classifier')
+    plt.show()
 
     print('\n\nFinished Training\n\n')
 
@@ -112,10 +140,10 @@ def get_net(retrain=False):
     return classifier_net
 
 def classify():
-    net = train()
+    net = get_net()
 
-    transform = transforms.Compose([transforms.ToTensor()])
-    testset = dset.ImageFolder(root="datasets/testing-classifier/", transform=transform)
+    transform = transforms.Compose([transforms.ToTensor(),transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+    testset = dset.ImageFolder(root="old_datasets/testing-classifier-split-noZero/", transform=transform)
     test_loader = data_utils.DataLoader(testset, batch_size=4, shuffle=True)
 
     correct = 0
@@ -123,6 +151,8 @@ def classify():
     for data in test_loader:
         images, labels = data
         outputs = net(Variable(images))
+
+        # helper.show_grid(images, 2)
 
         print(outputs.data)
         _, predicted = torch.max(outputs.data, 1)
@@ -133,14 +163,19 @@ def classify():
         total += labels.size(0)
         correct += (predicted == labels).sum()
 
+        print('Accuracy of the network on the test images: %d %%' % (
+            100 * correct / total))
+
+        # helper.show_grid(images, 6)
+
     print('Accuracy of the network on the test images: %d %%' % (
         100 * correct / total))
 
 def classify_weighted_avg(retrain=False):
-    get_net(retrain)
+    classifier_net = get_net(retrain)
 
     transform = transforms.Compose([transforms.ToTensor()])
-    testset = dset.ImageFolder(root="datasets/testing-classifier-b/", transform=transform)
+    testset = dset.ImageFolder(root="datasets/testing-classifier/", transform=transform)
     test_loader = data_utils.DataLoader(testset)
 
     numerator = 0
@@ -177,6 +212,7 @@ def classify_weighted_avg(retrain=False):
     weighted_avg = numerator / denominator
     print('Weighted average score for entire image: ' + str(weighted_avg))
 
-
 if __name__ == '__main__':
-    classify_weighted_avg(True)
+    ImageFile.LOAD_TRUNCATED_IMAGES = True
+
+    train(10)

@@ -72,12 +72,12 @@ def train(epochs=10):
 
     # Create loss function & optimization criteria
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(filter_net.parameters(), lr=0.001, momentum=0.9)
+    optimizer = optim.SGD(filter_net.parameters(), lr=0.0008, momentum=0.9)
 
     # Train network
     transform = transforms.Compose([transforms.ToTensor()])
     trainset = dset.ImageFolder(root="datasets/training-filter/", transform=transform)
-    train_loader = data_utils.DataLoader(trainset, batch_size=4, shuffle=True)
+    train_loader = data_utils.DataLoader(trainset, batch_size=6, shuffle=True)
 
     for epoch in range(epochs):  # 3 iters
         running_loss = 0.0
@@ -115,7 +115,7 @@ def classify(retrain=False):
 
     transform = transforms.Compose([transforms.ToTensor()])
     testset = dset.ImageFolder(root="datasets/testing-filter/", transform=transform)
-    test_loader = data_utils.DataLoader(testset, batch_size=4, shuffle=True)
+    test_loader = data_utils.DataLoader(testset, batch_size=6, shuffle=True)
 
     correct = 0
     total = 0
@@ -137,6 +137,4 @@ def classify(retrain=False):
 
 
 if __name__ == '__main__':
-    classify(True)
-
-
+    classify()
